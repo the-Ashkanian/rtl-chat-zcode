@@ -35,6 +35,22 @@
   direction: ltr !important;
 }
 
+/* Question (elicitation) dialog: keep the card chrome LTR; JS sets [dir]
+   on each text leaf from its own first letter, and [dir] aligns via start. */
+[data-elicitation-dialog-card],
+[data-elicitation-dialog-body],
+[data-elicitation-dialog-footer] {
+  direction: ltr;
+}
+[data-elicitation-dialog-card] [dir] {
+  text-align: start;
+}
+/* Flip Tailwind text-left inside an RTL dialog node (option buttons). */
+[data-elicitation-dialog-card] [dir="rtl"][class~="text-left"],
+[data-elicitation-dialog-card] [dir="rtl"] [class~="text-left"] {
+  text-align: right !important;
+}
+
 /* Message roots: JS sets dir from first word. text-align:start follows it
    (rtl → right, ltr → left). Do NOT force direction/text-align here. */
 [data-trajectory-message-role],
@@ -120,6 +136,10 @@ samp,
     '[data-reasoning-content]',
     '[data-streamdown]',
     '[data-v4-draft-greeting]',
+    '[data-elicitation-dialog-card]',
+    '[data-elicitation-dialog-card] [role="option"]',
+    '[data-elicitation-dialog-card] p',
+    '[data-elicitation-dialog-card] li',
     '[data-lexical-editor="true"]',
     '[data-lexical-editor="true"] p',
     '[data-testid="chat-input"]',
@@ -228,8 +248,12 @@ samp,
     }
 
     // Leaf labels (system rows, truncated spans) with no directed ancestor
-    const timeline = document.querySelector('[data-v4-timeline-scroll]')
-    if (timeline) {
+    // — searched in the timeline AND in the question (elicitation) dialog.
+    const leafRoots = [
+      document.querySelector('[data-v4-timeline-scroll]'),
+      document.querySelector('[data-elicitation-dialog-card]')
+    ].filter(Boolean)
+    for (const timeline of leafRoots) {
       const walker = document.createTreeWalker(timeline, NodeFilter.SHOW_TEXT)
       let node
       const leafSeen = new Set()
