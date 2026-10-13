@@ -36,13 +36,26 @@ function findEntry(header, parts) {
 
 const sha256 = b => crypto.createHash('sha256').update(b).digest('hex')
 
-const anchorRemote = 'Z.commandLine.appendSwitch("remote-debugging-port","9229");'
-const injectEarly =
-  'try{Z.commandLine.appendSwitch("load-extension",' + JSON.stringify(EXT) + ')}catch(_rtlE){}'
+// Anchors are matched by shape, not exact name: every ZCode build renames
+// the minified variables (Z -> j, as -> po, ...). Regex keeps the patch
+// working after updates instead of throwing "anchor missing".
+function findRemote(src) {
+  const m = src.match(/([A-Za-z_$][\w$]*)\.commandLine\.appendSwitch\("remote-debugging-port","9229"\);/)
+  return m ? { appVar: m[1], anchor: m[0] } : null
+}
 
-const anchorReady = 'Z.whenReady().then(async()=>{'
-const injectReady =
-  'try{as.defaultSession.loadExtension(' + JSON.stringify(EXT) + ',{allowFileAccess:!0})}catch(_rtlE){}'
+function findReady(src) {
+  const m = src.match(/([A-Za-z_$][\w$]*)\.whenReady\(\)\.then\(async\(\)=>\{/)
+  return m ? { appVar: m[1], anchor: m[0], index: m.index } : null
+}
+
+// The Electron module (defaultSession.loadExtension) is used right inside
+// the whenReady callback, so its current name is read from there.
+function findSessionVar(src, fromIndex) {
+  const window = src.slice(fromIndex, fromIndex + 2000)
+  const m = window.match(/([A-Za-z_$][\w$]*)\.defaultSession\./)
+  return m ? m[1] : null
+}
 
 function freeNewlines(src, need) {
   const chars = [...src]
@@ -73,10 +86,21 @@ function patchSource(src) {
     console.log('already patched')
     return src
   }
-  if (!src.includes(anchorRemote)) throw new Error('anchor remote missing')
-  if (!src.includes(anchorReady)) throw new Error('anchor whenReady missing')
-  let out = src.replace(anchorRemote, anchorRemote + injectEarly)
-  out = out.replace(anchorReady, anchorReady + injectReady)
+  const remote = findRemote(src)
+  if (!remote) throw new Error('anchor remote missing')
+  const ready = findReady(src)
+  if (!ready) throw new Error('anchor whenReady missing')
+  const sessVar = findSessionVar(src, ready.index)
+  if (!sessVar) throw new Error('anchor session missing')
+  console.log('app var:', remote.appVar, '| ready var:', ready.appVar, '| session var:', sessVar)
+  const injectEarly =
+    'try{' + remote.appVar + '.commandLine.appendSwitch("load-extension",' +
+    JSON.stringify(EXT) + ')}catch(_rtlE){}'
+  const injectReady =
+    'try{' + sessVar + '.defaultSession.loadExtension(' +
+    JSON.stringify(EXT) + ',{allowFileAccess:!0})}catch(_rtlE){}'
+  let out = src.replace(remote.anchor, remote.anchor + injectEarly)
+  out = out.replace(ready.anchor, ready.anchor + injectReady)
   return out
 }
 
@@ -126,7 +150,7 @@ console.log('final', buf.length, 'newHash', newHash.slice(0, 16))
 const txt = buf.toString('utf8')
 console.log('has load-extension', txt.includes('load-extension'))
 console.log('has loadExtension', txt.includes('loadExtension'))
-console.log('has whenReady', txt.includes('Z.whenReady'))
+console.log('has whenReady', txt.includes('.whenReady()'))
 console.log('has appendSwitch remote', txt.includes('remote-debugging-port'))
 
 fs.writeFileSync(ORIG_JS, original)
