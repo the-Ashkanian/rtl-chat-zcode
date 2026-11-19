@@ -167,7 +167,20 @@ if (!fs.existsSync(BACKUP)) {
   fs.copyFileSync(ASAR, BACKUP)
 }
 
-const wfd = fs.openSync(ASAR, 'r+')
+let wfd
+try {
+  wfd = fs.openSync(ASAR, 'r+')
+} catch (e) {
+  if (e.code === 'EPERM' || e.code === 'EACCES') {
+    console.error(`cannot write to ${ASAR} (${e.code})`)
+    console.error('ZCode is installed in a protected folder (e.g. C:\\Program Files).')
+    console.error('Fix: open PowerShell with "Run as administrator" and run the same command again.')
+    console.error('فارسی: ترمینال PowerShell را با «Run as administrator» باز کنید و همین دستور را دوباره بزنید.')
+    console.error('Nothing was changed — your app.asar is untouched.')
+    process.exit(1)
+  }
+  throw e
+}
 try {
   fs.writeSync(wfd, buf, 0, buf.length, fileAbs)
   if (oldHash && newHash && oldHash.length === newHash.length) {
