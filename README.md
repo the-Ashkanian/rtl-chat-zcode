@@ -4,6 +4,17 @@ RTL (right-to-left) chat patch for **ZCode Desktop** — makes Persian/Arabic me
 
 > **Note:** This is a community-made patch. It modifies ZCode's internal `app.asar` file to auto-load a small browser extension. NOT affiliated with ZCode. Re-apply after every ZCode update.
 
+## One-click install (Windows)
+
+Double-click **`install-rtl.bat`**. It does everything automatically:
+
+1. finds your ZCode install (user or Program Files),
+2. closes ZCode if it is running,
+3. asks for administrator rights **only** when ZCode is in Program Files (one UAC click),
+4. applies the patch and tells you when to reopen ZCode.
+
+Requires [Node.js](https://nodejs.org). After every ZCode update, double-click the same file again.
+
 ## Quick install (Windows, PowerShell)
 
 1. **Clone or download** this repo (green `Code` button → Download ZIP, then extract).
